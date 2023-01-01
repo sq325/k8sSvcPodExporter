@@ -1,6 +1,6 @@
 package resource
 
-var (
+const (
 	GetAllSvcs string = `kubectl get svc -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.metadata.labels};{.spec.selector}{"\n"}{end}'`
 	// default,kubernetes,{"component":"apiserver","provider":"kubernetes"},
 	// kube-system,kube-dns,{"k8s-app":"kube-dns","kubernetes.io/cluster-service":"true","kubernetes.io/name":"CoreDNS"},{"k8s-app":"kube-dns"}

@@ -12,7 +12,7 @@ import (
 	"github.com/sq325/svcPodKmsExporter/utils"
 )
 
-var (
+const (
 	kubectlPodCmd string = `kubectl get pods -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.metadata.labels}{"\n"}{end}'`
 	// default;busybox;{"run":"busybox"}
 	// kube-system;coredns-6d4b75cb6d-bz268;{"k8s-app":"kube-dns","pod-template-hash":"6d4b75cb6d"}
@@ -73,6 +73,17 @@ func (p *PodFactor) IsEmpty() bool {
 	return b
 }
 
+func (p *PodFactor) parseLineS(lineS []string) (name, namespace string, m map[string]string, err error) {
+	if len(lineS) != 3 {
+		return "", "", nil, fmt.Errorf("pod lineS colume num != 3\n%s", p.CmdStr())
+	}
+	m, err = utils.JsonStrToMap(lineS[2])
+	if err != nil {
+		return "", "", nil, err
+	}
+	return lineS[1], lineS[0], m, nil
+}
+
 func (p *PodFactor) GetResources() (Pods, error) {
 	scanner, isempty := p.runCmd()
 	if isempty {
@@ -82,14 +93,11 @@ func (p *PodFactor) GetResources() (Pods, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		lineS := strings.Split(line, ";")
-		if len(lineS) != 3 {
-			return nil, fmt.Errorf("pod lineS colume num != 3\n%s", p.CmdStr())
-		}
-		m, err := utils.JsonStrToMap(lineS[2])
+		name, namespace, m, err := p.parseLineS(lineS)
 		if err != nil {
 			return nil, err
 		}
-		pod := NewPod(lineS[1], lineS[0], m)
+		pod := NewPod(name, namespace, m)
 		pods = append(pods, pod)
 	}
 	if len(pods) == 0 {
