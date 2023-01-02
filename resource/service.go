@@ -1,17 +1,101 @@
 package resource
 
+import (
+	"bufio"
+	"errors"
+	"fmt"
+	"os/exec"
+	"strings"
+
+	"github.com/sq325/svcPodKmsExporter/utils"
+)
+
 const (
-	GetAllSvcs string = `kubectl get svc -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.metadata.labels};{.spec.selector}{"\n"}{end}'`
-	// default,kubernetes,{"component":"apiserver","provider":"kubernetes"},
-	// kube-system,kube-dns,{"k8s-app":"kube-dns","kubernetes.io/cluster-service":"true","kubernetes.io/name":"CoreDNS"},{"k8s-app":"kube-dns"}
-	// kube-system,metrics-server,{"addonmanager.kubernetes.io/mode":"Reconcile","k8s-app":"metrics-server","kubernetes.io/minikube-addons":"metrics-server","kubernetes.io/minikube-addons-endpoint":"metrics-server","kubernetes.io/name":"Metrics-server"},{"k8s-app":"metrics-server"}
-	// monitoring,prometheus,{"app":"prometheus"},{"app":"prometheus"}
+	kubectlSvcCmd string = `kubectl get svc -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.spec.selector}{"\n"}{end}'`
 )
 
 // Service define a service resource
-type Service struct {
-	Name, Namespace string
-	Selector        map[string]string
+type Svc struct {
+	name, namespace string
+	kind            string // title style
+	selector        map[string]string
+}
+type Svcs []*Svc
+
+func NewSvc(name, namespaces string, selector map[string]string) *Svc {
+	return &Svc{
+		name:      name,
+		namespace: namespaces,
+		kind:      "Service",
+		selector:  selector,
+	}
 }
 
-type Services []Service
+func (s *Svc) Name() string {
+	return s.name
+}
+func (s *Svc) Namespace() string {
+	return s.namespace
+}
+
+// SvcFactor
+type SvcFactor struct {
+	cmdstr string // kubectl command
+}
+
+func NewSvcFactor(cmdstr string) *SvcFactor {
+	return &SvcFactor{
+		cmdstr: cmdstr,
+	}
+}
+
+func (s *SvcFactor) CmdStr() string {
+	return s.cmdstr
+}
+
+func (s *SvcFactor) runcmd() (*bufio.Scanner, bool) {
+	cmd := exec.Command("sh", "-c", s.cmdstr)
+	scanner, isempty := utils.RunCmd(cmd)
+	return scanner, isempty
+}
+
+func (s *SvcFactor) IsEmpty() bool {
+	_, b := s.runcmd()
+	return b
+}
+
+func (s *SvcFactor) parseLineS(lineS []string) (name, namespace string, m map[string]string, err error) {
+	if len(lineS) != 3 {
+		return "", "", nil, fmt.Errorf("svc lineS colume num != 3\n%s", s.CmdStr())
+	}
+	jsonstr := lineS[2]
+	if jsonstr != "" {
+		m, err = utils.JsonStrToMap(jsonstr)
+		if err != nil {
+			return "", "", nil, err
+		}
+	}
+	return lineS[1], lineS[0], m, nil
+}
+
+func (s *SvcFactor) GetResources() (Svcs, error) {
+	scanner, isempty := s.runcmd()
+	if isempty {
+		return nil, errors.New("no resources found")
+	}
+	var svcs Svcs
+	for scanner.Scan() {
+		line := scanner.Text()
+		lineS := strings.Split(line, ";")
+		name, namespace, m, err := s.parseLineS(lineS)
+		if err != nil {
+			return nil, err
+		}
+		svc := NewSvc(name, namespace, m)
+		svcs = append(svcs, svc)
+	}
+	if len(svcs) == 0 {
+		return nil, fmt.Errorf("svcs is empty, cmd: %s", s.CmdStr())
+	}
+	return svcs, nil
+}

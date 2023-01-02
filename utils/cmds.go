@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -60,11 +61,12 @@ func Utf8ToGbk(str string) string {
 
 func JsonStrToMap(jsonStr string) (map[string]string, error) {
 	m := make(map[string]string)
+	if jsonStr == "" {
+		return nil, errors.New("jsonStr is empty string")
+	}
 	err := json.Unmarshal([]byte(jsonStr), &m)
 	if err != nil {
 		return nil, fmt.Errorf("JsonStrToMap Err: %s.\n%s", jsonStr, err.Error())
 	}
 	return m, nil
 }
-
-
