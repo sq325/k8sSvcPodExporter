@@ -16,7 +16,7 @@ import "testing"
 // monitoring;prometheus-6856764f47-mw6gc;{"app":"prometheus","pod-template-hash":"6856764f47"}
 
 func TestRuncmd(t *testing.T) {
-	f := NewPodFactor(kubectlPodCmd)
+	f := NewPodFactor(KubectlPodCmd)
 	scan, _ := f.runcmd()
 	for scan.Scan() {
 		t.Log(scan.Text())
@@ -24,8 +24,8 @@ func TestRuncmd(t *testing.T) {
 }
 
 func TestPodGetResources(t *testing.T) {
-	f := NewPodFactor(kubectlPodCmd)
-	pods, err := f.GetResources()
+	f := NewPodFactor(KubectlPodCmd)
+	pods,  err := f.GetResources()
 	if err != nil {
 		t.Log(err)
 	}

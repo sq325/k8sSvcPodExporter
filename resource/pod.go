@@ -9,11 +9,12 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sq325/svcPodKmsExporter/utils"
 )
 
 const (
-	kubectlPodCmd string = `kubectl get pods -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.metadata.labels}{"\n"}{end}'`
+	KubectlPodCmd string = `kubectl get pods -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.metadata.labels}{"\n"}{end}'`
 )
 
 // Pod define a pod resource
@@ -31,6 +32,22 @@ func NewPod(name, namespace string, labels map[string]string) *Pod {
 		kind:      "Pod",
 		labels:    labels,
 	}
+}
+
+func (p *Pod) Name() string {
+	return p.name
+}
+
+func (p *Pod) Namespace() string {
+	return p.namespace
+}
+
+func (p *Pod) Kind() string {
+	return p.kind
+}
+
+func (p *Pod) Labels() prometheus.Labels {
+	return p.labels
 }
 
 type Pods []*Pod
@@ -91,6 +108,9 @@ func (p *PodFactor) GetResources() (Pods, error) {
 		}
 		pod := NewPod(name, namespace, m)
 		pods = append(pods, pod)
+		if m == nil {
+			continue
+		}
 	}
 	if len(pods) == 0 {
 		return nil, fmt.Errorf("pods is empty, cmd: %s", p.CmdStr())

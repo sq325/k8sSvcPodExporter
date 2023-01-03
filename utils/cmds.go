@@ -70,3 +70,15 @@ func JsonStrToMap(jsonStr string) (map[string]string, error) {
 	}
 	return m, nil
 }
+
+func MapToStr(m map[string]string) (string, error) {
+	if m == nil {
+		return "", nil
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return "", err
+	}
+	str := string(b[:])
+	return str, nil
+}

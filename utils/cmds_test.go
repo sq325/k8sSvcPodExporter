@@ -9,3 +9,12 @@ func TestJsonStrToMap(t *testing.T) {
 		t.Log(k, v)
 	}
 }
+
+func TestMapToStr(t *testing.T) {
+	m := map[string]string{
+		"a": "b",
+		"c": "d",
+	}
+	s, _ := MapToStr(m)
+	t.Log(s)
+}

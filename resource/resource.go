@@ -4,6 +4,7 @@ package resource
 type Resource interface {
 	Name() string
 	Namespace() string
+	Kind() string
 }
 
 type Resources []*Resource

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	kubectlSvcCmd string = `kubectl get svc -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.spec.selector}{"\n"}{end}'`
+	KubectlSvcCmd string = `kubectl get svc -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.spec.selector}{"\n"}{end}'`
 )
 
 // Service define a service resource
@@ -36,6 +36,14 @@ func (s *Svc) Name() string {
 }
 func (s *Svc) Namespace() string {
 	return s.namespace
+}
+
+func (s *Svc) Kind() string {
+	return s.kind
+}
+
+func (s *Svc) Selector() map[string]string {
+	return s.selector
 }
 
 // SvcFactor

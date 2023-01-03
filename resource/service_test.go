@@ -8,7 +8,7 @@ import "testing"
 // monitoring;prometheus;{"app":"prometheus"}
 
 func TestSvcGetResources(t *testing.T) {
-	f := NewSvcFactor(kubectlSvcCmd)
+	f := NewSvcFactor(KubectlSvcCmd)
 	svcs, err := f.GetResources()
 	if err != nil {
 		t.Log(err)
