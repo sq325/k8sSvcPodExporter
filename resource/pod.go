@@ -4,8 +4,8 @@ package resource
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
+	"log"
 	"os/exec"
 	"strings"
 
@@ -96,7 +96,8 @@ func (p *PodFactor) parseLineS(lineS []string) (name, namespace string, m map[st
 func (p *PodFactor) GetResources() (Pods, error) {
 	scanner, isempty := p.runcmd()
 	if isempty {
-		return nil, errors.New("no resources found")
+		log.Println("no resources found")
+		return nil, nil
 	}
 	var pods Pods
 	for scanner.Scan() {
@@ -113,7 +114,8 @@ func (p *PodFactor) GetResources() (Pods, error) {
 		}
 	}
 	if len(pods) == 0 {
-		return nil, fmt.Errorf("pods is empty, cmd: %s", p.CmdStr())
+		log.Printf("pods is empty, cmd: %s\n", p.CmdStr())
+		return nil, nil
 	}
 	return pods, nil
 }
