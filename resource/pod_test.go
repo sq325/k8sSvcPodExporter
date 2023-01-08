@@ -15,17 +15,9 @@ import "testing"
 // kube-system;storage-provisioner;{"addonmanager.kubernetes.io/mode":"Reconcile","integration-test":"storage-provisioner"}
 // monitoring;prometheus-6856764f47-mw6gc;{"app":"prometheus","pod-template-hash":"6856764f47"}
 
-func TestRuncmd(t *testing.T) {
-	f := NewPodFactor(KubectlPodCmd)
-	scan, _ := f.runcmd()
-	for scan.Scan() {
-		t.Log(scan.Text())
-	}
-}
-
 func TestPodGetResources(t *testing.T) {
 	f := NewPodFactor(KubectlPodCmd)
-	pods,  err := f.GetResources()
+	pods, err := f.GetResources()
 	if err != nil {
 		t.Log(err)
 	}

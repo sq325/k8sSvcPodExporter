@@ -17,6 +17,7 @@ const (
 	KubectlPodCmd string = `kubectl get pods -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.metadata.labels}{"\n"}{end}'`
 )
 
+// Service implement Resource interface
 // Pod define a pod resource
 type Pod struct {
 	name      string
@@ -50,6 +51,10 @@ func (p *Pod) Labels() prometheus.Labels {
 	return p.labels
 }
 
+func (p *Pod) Selector() map[string]string {
+	return nil
+}
+
 type Pods []*Pod
 
 // PodFactor implements Factor interface
@@ -58,7 +63,7 @@ type PodFactor struct {
 	cmdstr string // kubectl command
 }
 
-func NewPodFactor(cmdstr string) *PodFactor {
+func NewPodFactor(cmdstr string) Factor {
 	return &PodFactor{
 		cmdstr: cmdstr,
 	}
@@ -93,13 +98,13 @@ func (p *PodFactor) parseLineS(lineS []string) (name, namespace string, m map[st
 	return lineS[1], lineS[0], m, nil
 }
 
-func (p *PodFactor) GetResources() (Pods, error) {
+func (p *PodFactor) GetResources() (Resources, error) {
 	scanner, isempty := p.runcmd()
 	if isempty {
 		log.Println("no resources found")
 		return nil, nil
 	}
-	var pods Pods
+	var pods Resources
 	for scanner.Scan() {
 		line := scanner.Text()
 		lineS := strings.Split(line, ";")

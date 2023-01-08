@@ -10,11 +10,14 @@ import (
 
 var (
 	SvcMetricName      = "kube_service_selector"
-	SvcMetricHelp      = "kube_service_selector contain all selectors services"
+	SvcMetricHelp      = "kube_service_selector contains all selectors services"
 	SvcMetricLabelKeys = []string{"namespace", "name", "selector"}
 )
 
-var kubectlSvcCmd = resource.KubectlSvcCmd
+var (
+	kubectlSvcCmd                 = resource.KubectlSvcCmd
+	svcPod        resource.Factor = resource.NewSvcFactor(kubectlSvcCmd)
+)
 
 func NewSvcMetric(metricName, help string, labelKeys, labelValues []string, value float64) prometheus.Metric {
 	return prometheus.MustNewConstMetric(
@@ -26,7 +29,8 @@ func NewSvcMetric(metricName, help string, labelKeys, labelValues []string, valu
 }
 
 type SvcCollector struct {
-	desc *prometheus.Desc
+	desc   *prometheus.Desc
+	factor resource.Factor
 }
 
 func (c *SvcCollector) Describe(ch chan<- *prometheus.Desc) {
@@ -34,8 +38,7 @@ func (c *SvcCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *SvcCollector) Collect(ch chan<- prometheus.Metric) {
-	sF := resource.NewSvcFactor(kubectlSvcCmd)
-	svcs, err := sF.GetResources()
+	svcs, err := c.factor.GetResources()
 	if err != nil {
 		log.Println(err)
 		return
@@ -48,11 +51,11 @@ func (c *SvcCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 		name := s.Name()
 		namespace := s.Namespace()
-		keys := []string{"namespace", "name", "selector"}
+		keys := SvcMetricLabelKeys
 		values := []string{namespace, name, selectorStr}
 		ch <- NewPodMetric(
-			"kube_service_selector",
-			"kube_service_selector contain all selectors services",
+			SvcMetricName,
+			SvcMetricHelp,
 			keys,
 			values,
 			float64(1),
@@ -61,5 +64,8 @@ func (c *SvcCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func NewSvcCollector(desc *prometheus.Desc) prometheus.Collector {
-	return &SvcCollector{desc}
+	return &SvcCollector{
+		desc:   desc,
+		factor: svcPod,
+	}
 }

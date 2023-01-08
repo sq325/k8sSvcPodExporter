@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sq325/svcPodKmsExporter/utils"
 )
 
@@ -14,6 +15,7 @@ const (
 	KubectlSvcCmd string = `kubectl get svc -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.spec.selector}{"\n"}{end}'`
 )
 
+// Service implement Resource interface
 // Service define a service resource
 type Svc struct {
 	name, namespace string
@@ -46,12 +48,16 @@ func (s *Svc) Selector() map[string]string {
 	return s.selector
 }
 
-// SvcFactor
+func (s *Svc) Labels() prometheus.Labels {
+	return nil
+}
+
+// SvcFactor implement Factor interface
 type SvcFactor struct {
 	cmdstr string // kubectl command
 }
 
-func NewSvcFactor(cmdstr string) *SvcFactor {
+func NewSvcFactor(cmdstr string) Factor {
 	return &SvcFactor{
 		cmdstr: cmdstr,
 	}
@@ -86,12 +92,12 @@ func (s *SvcFactor) parseLineS(lineS []string) (name, namespace string, m map[st
 	return lineS[1], lineS[0], m, nil
 }
 
-func (s *SvcFactor) GetResources() (Svcs, error) {
+func (s *SvcFactor) GetResources() (Resources, error) {
 	scanner, isempty := s.runcmd()
 	if isempty {
 		return nil, errors.New("no resources found")
 	}
-	var svcs Svcs
+	var svcs Resources
 	for scanner.Scan() {
 		line := scanner.Text()
 		lineS := strings.Split(line, ";")

@@ -22,6 +22,7 @@ var ()
 
 func init() {
 	// Metrics have to be registered to be exposed
+
 	prometheus.Unregister(promcollectors.NewProcessCollector(promcollectors.ProcessCollectorOpts{}))
 	prometheus.Unregister(promcollectors.NewGoCollector())
 	prometheus.Register(collector.NewPodCollector(prometheus.NewDesc(collector.PodMetricName, collector.PodMetricHelp, collector.PodMetricLabelKeys, nil)))

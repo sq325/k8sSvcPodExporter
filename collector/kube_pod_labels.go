@@ -8,13 +8,18 @@ import (
 	"github.com/sq325/svcPodKmsExporter/utils"
 )
 
+// kube_pod_label metric meta info
 var (
 	PodMetricName      = "kube_pod_label"
-	PodMetricHelp      = "kube_pod_label contain all pods labels"
+	PodMetricHelp      = "kube_pod_label contains all pods labels"
 	PodMetricLabelKeys = []string{"namespace", "name", "labels"}
 )
 
-var kubectlPodCmd = resource.KubectlPodCmd
+// PodFactor
+var (
+	kubectlPodCmd                 = resource.KubectlPodCmd
+	podFactor     resource.Factor = resource.NewPodFactor(kubectlPodCmd)
+)
 
 func NewPodMetric(metricName, help string, labelKeys, labelValues []string, value float64) prometheus.Metric {
 	return prometheus.MustNewConstMetric(
@@ -26,7 +31,8 @@ func NewPodMetric(metricName, help string, labelKeys, labelValues []string, valu
 }
 
 type PodCollector struct {
-	desc *prometheus.Desc
+	desc   *prometheus.Desc
+	factor resource.Factor
 }
 
 func (c *PodCollector) Describe(ch chan<- *prometheus.Desc) {
@@ -34,8 +40,7 @@ func (c *PodCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *PodCollector) Collect(ch chan<- prometheus.Metric) {
-	pF := resource.NewPodFactor(kubectlPodCmd)
-	pods, err := pF.GetResources()
+	pods, err := c.factor.GetResources()
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -48,11 +53,11 @@ func (c *PodCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 		name := p.Name()
 		namespace := p.Namespace()
-		keys := []string{"namespace", "name", "labels"}
+		keys := PodMetricLabelKeys
 		values := []string{namespace, name, labelsStr}
 		ch <- NewPodMetric(
-			"kube_pod_label",
-			"kube_pod_label contain all pods labels",
+			PodMetricName,
+			PodMetricHelp,
 			keys,
 			values,
 			float64(1),
@@ -61,5 +66,8 @@ func (c *PodCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func NewPodCollector(desc *prometheus.Desc) prometheus.Collector {
-	return &PodCollector{desc}
+	return &PodCollector{
+		desc:   desc,
+		factor: podFactor,
+	}
 }
