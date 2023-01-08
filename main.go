@@ -1,11 +1,12 @@
-// 问题：
-// 1. 每次scrape 都会更新metrics
-
 package main
 
 import (
+	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 	promcollectors "github.com/prometheus/client_golang/prometheus/collectors"
@@ -14,15 +15,14 @@ import (
 	"github.com/sq325/svcPodKmsExporter/collector"
 )
 
+// flags
 var (
-	port *string = pflag.StringP("port", "d", "8181", "bind port, default port: 8181")
+	port    *string = pflag.StringP("port", "p", "0", "bind port, default port: 8181")
+	version *bool   = pflag.BoolP("version", "v", false, "Version info")
 )
-
-var ()
 
 func init() {
 	// Metrics have to be registered to be exposed
-
 	prometheus.Unregister(promcollectors.NewProcessCollector(promcollectors.ProcessCollectorOpts{}))
 	prometheus.Unregister(promcollectors.NewGoCollector())
 	prometheus.Register(collector.NewPodCollector(prometheus.NewDesc(collector.PodMetricName, collector.PodMetricHelp, collector.PodMetricLabelKeys, nil)))
@@ -31,9 +31,13 @@ func init() {
 
 func main() {
 	pflag.Parse()
+	if *version {
+		fmt.Println("svcPod_exporter v1.0")
+		fmt.Println("Update: 2023-1-8")
+		fmt.Println("Autor: Quan Sun")
+		os.Exit(0)
+	}
 
-	// The Handler function provides a default handler to expose metrics
-	// via an HTTP server. "/metrics" is the usual endpoint for that.
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
 				<head><title>svcPodKmsExporter</title></head>
@@ -44,7 +48,14 @@ func main() {
 				</html>`))
 	})
 	http.Handle("/metrics", promhttp.Handler())
-	log.Println("Listening port:", *port)
-	log.Println("URL: http://<ip>:" + *port + "/metrics")
-	log.Fatal(http.ListenAndServe(":"+*port, nil))
+	listener, err := net.Listen("tcp", ":"+*port)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Address:", listener.Addr().String())
+	_port := strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+	log.Println("Listening port:", _port)
+	log.Println("URL: http://<ip>:" + _port + "/metrics")
+	log.Fatal(http.Serve(listener, nil))
 }
