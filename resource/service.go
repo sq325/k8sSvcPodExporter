@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	KubectlSvcCmd string = `kubectl get svc -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.spec.selector}{"\n"}{end}'`
+	// KubectlSvcCmd string = `kubectl get svc -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.spec.selector}{"\n"}{end}'`
+	KubectlSvcCmd string = `kubectl get svc -A -ogo-template --template='{{$qm:="\""}}{{range .items}}{{printf "%s;%s;" .metadata.namespace .metadata.name}}{{"{"}}{{range $key, $value := .spec.selector}}{{$qm}}{{$key}}{{$qm}}:{{$qm}}{{$value}}{{$qm}},{{end}}{{"}"}}{{"\n"}}{{end}}'`
 )
 
 // Service implement Resource interface

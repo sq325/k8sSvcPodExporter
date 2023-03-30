@@ -33,8 +33,7 @@ func main() {
 	pflag.Parse()
 	if *version {
 		fmt.Println("svcPod_exporter v1.0")
-		fmt.Println("Update: 2023-1-8")
-		fmt.Println("Autor: Quan Sun")
+		fmt.Println("Update: 2023-3-30")
 		os.Exit(0)
 	}
 

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"golang.org/x/text/encoding/simplifiedchinese"
@@ -64,6 +65,13 @@ func JsonStrToMap(jsonStr string) (map[string]string, error) {
 	if jsonStr == "" {
 		return nil, errors.New("jsonStr is empty string")
 	}
+
+	// fix {...key:value ,} condition
+	pattern_endwithComma := regexp.MustCompile(`\s*,\s*\}`)
+	if pattern_endwithComma.MatchString(jsonStr) {
+		jsonStr = pattern_endwithComma.ReplaceAllString(jsonStr, "}")
+	}
+
 	err := json.Unmarshal([]byte(jsonStr), &m)
 	if err != nil {
 		return nil, fmt.Errorf("JsonStrToMap Err: %s.\n%s", jsonStr, err.Error())

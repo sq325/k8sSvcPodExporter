@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	KubectlPodCmd string = `kubectl get pods -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.metadata.labels}{"\n"}{end}'`
+	// KubectlPodCmd string = `kubectl get pods -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.metadata.labels}{"\n"}{end}'`
+	KubectlPodCmd string = `kubectl get po -A -ogo-template --template='{{$qm:="\""}}{{range .items}}{{printf "%s;%s;" .metadata.namespace .metadata.name}}{{"{"}}{{range $key, $value := .metadata.labels}}{{$qm}}{{$key}}{{$qm}}:{{$qm}}{{$value}}{{$qm}},{{end}}{{"}"}}{{"\n"}}{{end}}'`
 )
 
 // Service implement Resource interface
