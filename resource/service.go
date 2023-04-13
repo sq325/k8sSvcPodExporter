@@ -1,19 +1,12 @@
 package resource
 
 import (
-	"bufio"
-	"errors"
-	"fmt"
-	"os/exec"
-	"strings"
+	"context"
+	"log"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sq325/svcPodKmsExporter/utils"
-)
-
-const (
-	// KubectlSvcCmd string = `kubectl get svc -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.spec.selector}{"\n"}{end}'`
-	KubectlSvcCmd string = `kubectl get svc -A -ogo-template --template='{{$qm:="\""}}{{range .items}}{{printf "%s;%s;" .metadata.namespace .metadata.name}}{{"{"}}{{range $key, $value := .spec.selector}}{{$qm}}{{$key}}{{$qm}}:{{$qm}}{{$value}}{{$qm}},{{end}}{{"}"}}{{"\n"}}{{end}}'`
+	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // Service implement Resource interface
@@ -22,15 +15,17 @@ type Svc struct {
 	name, namespace string
 	kind            string // title style
 	selector        map[string]string
+	labels          map[string]string
 }
 type Svcs []*Svc
 
-func NewSvc(name, namespaces string, selector map[string]string) *Svc {
+func NewSvc(name, namespaces string, selector map[string]string, labels map[string]string) *Svc {
 	return &Svc{
 		name:      name,
 		namespace: namespaces,
 		kind:      "Service",
 		selector:  selector,
+		labels:    labels,
 	}
 }
 
@@ -49,68 +44,39 @@ func (s *Svc) Selector() map[string]string {
 	return s.selector
 }
 
-func (s *Svc) Labels() prometheus.Labels {
-	return nil
+func (s *Svc) Labels() map[string]string {
+	return s.labels
 }
 
 // SvcFactor implement Factor interface
 type SvcFactor struct {
-	cmdstr string // kubectl command
+	ClientSet *kubernetes.Clientset
 }
 
-func NewSvcFactor(cmdstr string) Factor {
+func NewSvcFactor(clientSet *kubernetes.Clientset) Factor {
 	return &SvcFactor{
-		cmdstr: cmdstr,
+		ClientSet: clientSet,
 	}
-}
-
-func (s *SvcFactor) CmdStr() string {
-	return s.cmdstr
-}
-
-func (s *SvcFactor) runcmd() (*bufio.Scanner, bool) {
-	cmd := exec.Command("sh", "-c", s.cmdstr)
-	scanner, isempty := utils.RunCmd(cmd)
-	return scanner, isempty
-}
-
-func (s *SvcFactor) IsEmpty() bool {
-	_, b := s.runcmd()
-	return b
-}
-
-func (s *SvcFactor) parseLineS(lineS []string) (name, namespace string, m map[string]string, err error) {
-	if len(lineS) != 3 {
-		return "", "", nil, fmt.Errorf("svc lineS colume num != 3\n%s", s.CmdStr())
-	}
-	jsonstr := lineS[2]
-	if jsonstr != "" {
-		m, err = utils.JsonStrToMap(jsonstr)
-		if err != nil {
-			return "", "", nil, err
-		}
-	}
-	return lineS[1], lineS[0], m, nil
 }
 
 func (s *SvcFactor) GetResources() (Resources, error) {
-	scanner, isempty := s.runcmd()
-	if isempty {
-		return nil, errors.New("no resources found")
-	}
-	var svcs Resources
-	for scanner.Scan() {
-		line := scanner.Text()
-		lineS := strings.Split(line, ";")
-		name, namespace, m, err := s.parseLineS(lineS)
-		if err != nil {
-			return nil, err
+	svcList, err := s.ClientSet.CoreV1().Services("").List(context.Background(), v1.ListOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
 		}
-		svc := NewSvc(name, namespace, m)
+		return nil, err
+	}
+
+	var svcs Resources
+	for _, nsvc := range svcList.Items {
+		svc := NewSvc(nsvc.Name, nsvc.Namespace, nsvc.Spec.Selector, nsvc.Labels)
 		svcs = append(svcs, svc)
 	}
+
 	if len(svcs) == 0 {
-		return nil, fmt.Errorf("svcs is empty, cmd: %s", s.CmdStr())
+		log.Println("No services found in cluster")
+		return nil, nil
 	}
 	return svcs, nil
 }

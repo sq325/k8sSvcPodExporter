@@ -15,26 +15,19 @@ var (
 )
 
 var (
-	kubectlSvcCmd                 = resource.KubectlSvcCmd
-	svcPod        resource.Factor = resource.NewSvcFactor(kubectlSvcCmd)
+	svcCounterVec *prometheus.CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: SvcMetricName,
+		Help: SvcMetricHelp,
+	}, SvcMetricLabelKeys)
 )
 
-func NewSvcMetric(metricName, help string, labelKeys, labelValues []string, value float64) prometheus.Metric {
-	return prometheus.MustNewConstMetric(
-		prometheus.NewDesc(metricName, help, labelKeys, nil),
-		prometheus.GaugeValue,
-		value,
-		labelValues...,
-	)
-}
-
 type SvcCollector struct {
-	desc   *prometheus.Desc
+	cv     *prometheus.CounterVec
 	factor resource.Factor
 }
 
 func (c *SvcCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.desc
+	c.cv.MetricVec.Describe(ch)
 }
 
 func (c *SvcCollector) Collect(ch chan<- prometheus.Metric) {
@@ -51,21 +44,15 @@ func (c *SvcCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 		name := s.Name()
 		namespace := s.Namespace()
-		keys := SvcMetricLabelKeys
 		values := []string{namespace, name, selectorStr}
-		ch <- NewPodMetric(
-			SvcMetricName,
-			SvcMetricHelp,
-			keys,
-			values,
-			float64(1),
-		)
+		c.cv.WithLabelValues(values...).Inc()
 	}
+	c.cv.Collect(ch)
 }
 
-func NewSvcCollector(desc *prometheus.Desc) prometheus.Collector {
+func NewSvcCollector(factor resource.Factor) prometheus.Collector {
 	return &SvcCollector{
-		desc:   desc,
-		factor: svcPod,
+		cv:     svcCounterVec,
+		factor: factor,
 	}
 }

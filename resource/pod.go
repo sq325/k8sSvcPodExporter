@@ -3,19 +3,12 @@
 package resource
 
 import (
-	"bufio"
-	"fmt"
+	"context"
 	"log"
-	"os/exec"
-	"strings"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sq325/svcPodKmsExporter/utils"
-)
-
-const (
-	// KubectlPodCmd string = `kubectl get pods -A -o=jsonpath='{range .items[*]}{.metadata.namespace};{.metadata.name};{.metadata.labels}{"\n"}{end}'`
-	KubectlPodCmd string = `kubectl get po -A -ogo-template --template='{{$qm:="\""}}{{range .items}}{{printf "%s;%s;" .metadata.namespace .metadata.name}}{{"{"}}{{range $key, $value := .metadata.labels}}{{$qm}}{{$key}}{{$qm}}:{{$qm}}{{$value}}{{$qm}},{{end}}{{"}"}}{{"\n"}}{{end}}'`
+	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // Service implement Resource interface
@@ -48,7 +41,7 @@ func (p *Pod) Kind() string {
 	return p.kind
 }
 
-func (p *Pod) Labels() prometheus.Labels {
+func (p *Pod) Labels() map[string]string {
 	return p.labels
 }
 
@@ -61,66 +54,29 @@ type Pods []*Pod
 // PodFactor implements Factor interface
 // PodFactor parse output and produce Pods
 type PodFactor struct {
-	cmdstr string // kubectl command
+	ClientSet *kubernetes.Clientset
 }
 
-func NewPodFactor(cmdstr string) Factor {
-	return &PodFactor{
-		cmdstr: cmdstr,
-	}
-}
-
-func (p *PodFactor) CmdStr() string {
-	return p.cmdstr
-}
-
-func (p *PodFactor) runcmd() (*bufio.Scanner, bool) {
-	cmd := exec.Command("sh", "-c", p.cmdstr)
-	scanner, isempty := utils.RunCmd(cmd)
-	return scanner, isempty
-}
-
-func (p *PodFactor) IsEmpty() bool {
-	_, b := p.runcmd()
-	return b
-}
-
-func (p *PodFactor) parseLineS(lineS []string) (name, namespace string, m map[string]string, err error) {
-	if len(lineS) != 3 {
-		return "", "", nil, fmt.Errorf("pod lineS colume num != 3\n%s", p.CmdStr())
-	}
-	jsonstr := lineS[2]
-	if jsonstr != "" {
-		m, err = utils.JsonStrToMap(jsonstr)
-		if err != nil {
-			return "", "", nil, err
-		}
-	}
-	return lineS[1], lineS[0], m, nil
+func NewPodFactor(clientSet *kubernetes.Clientset) Factor {
+	return &PodFactor{ClientSet: clientSet}
 }
 
 func (p *PodFactor) GetResources() (Resources, error) {
-	scanner, isempty := p.runcmd()
-	if isempty {
-		log.Println("no resources found")
-		return nil, nil
+	podList, err := p.ClientSet.CoreV1().Pods("").List(context.Background(), v1.ListOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	var pods Resources
-	for scanner.Scan() {
-		line := scanner.Text()
-		lineS := strings.Split(line, ";")
-		name, namespace, m, err := p.parseLineS(lineS)
-		if err != nil {
-			return nil, err
-		}
-		pod := NewPod(name, namespace, m)
+	for _, npod := range podList.Items {
+		pod := NewPod(npod.Name, npod.Namespace, npod.Labels)
 		pods = append(pods, pod)
-		if m == nil {
-			continue
-		}
 	}
+
 	if len(pods) == 0 {
-		log.Printf("pods is empty, cmd: %s\n", p.CmdStr())
+		log.Println("No pods found in cluster")
 		return nil, nil
 	}
 	return pods, nil

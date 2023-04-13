@@ -15,28 +15,20 @@ var (
 	PodMetricLabelKeys = []string{"namespace", "name", "labels"}
 )
 
-// PodFactor
 var (
-	kubectlPodCmd                 = resource.KubectlPodCmd
-	podFactor     resource.Factor = resource.NewPodFactor(kubectlPodCmd)
+	podCounterVec *prometheus.CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: PodMetricName,
+		Help: PodMetricHelp,
+	}, PodMetricLabelKeys)
 )
 
-func NewPodMetric(metricName, help string, labelKeys, labelValues []string, value float64) prometheus.Metric {
-	return prometheus.MustNewConstMetric(
-		prometheus.NewDesc(metricName, help, labelKeys, nil),
-		prometheus.GaugeValue,
-		value,
-		labelValues...,
-	)
-}
-
 type PodCollector struct {
-	desc   *prometheus.Desc
+	cv     *prometheus.CounterVec
 	factor resource.Factor
 }
 
 func (c *PodCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.desc
+	c.cv.MetricVec.Describe(ch)
 }
 
 func (c *PodCollector) Collect(ch chan<- prometheus.Metric) {
@@ -51,23 +43,18 @@ func (c *PodCollector) Collect(ch chan<- prometheus.Metric) {
 			log.Fatal(err)
 			return
 		}
+		log.Println("in pods collector, podName: ", p.Name())
 		name := p.Name()
 		namespace := p.Namespace()
-		keys := PodMetricLabelKeys
 		values := []string{namespace, name, labelsStr}
-		ch <- NewPodMetric(
-			PodMetricName,
-			PodMetricHelp,
-			keys,
-			values,
-			float64(1),
-		)
+		c.cv.WithLabelValues(values...).Inc()
 	}
+	c.cv.Collect(ch)
 }
 
-func NewPodCollector(desc *prometheus.Desc) prometheus.Collector {
+func NewPodCollector(factor resource.Factor) prometheus.Collector {
 	return &PodCollector{
-		desc:   desc,
-		factor: podFactor,
+		cv:     podCounterVec,
+		factor: factor,
 	}
 }
