@@ -12,7 +12,7 @@ import (
 var (
 	PodMetricName      = "kube_pod_label"
 	PodMetricHelp      = "kube_pod_label contains all pods labels"
-	PodMetricLabelKeys = []string{"namespace", "name", "labels"}
+	PodMetricLabelKeys = []string{"namespace", "pod", "labels"}
 )
 
 var (
@@ -43,10 +43,9 @@ func (c *PodCollector) Collect(ch chan<- prometheus.Metric) {
 			log.Fatal(err)
 			return
 		}
-		log.Println("in pods collector, podName: ", p.Name())
-		name := p.Name()
+		podName := p.Name()
 		namespace := p.Namespace()
-		values := []string{namespace, name, labelsStr}
+		values := []string{namespace, podName, labelsStr}
 		c.cv.WithLabelValues(values...).Inc()
 	}
 	c.cv.Collect(ch)

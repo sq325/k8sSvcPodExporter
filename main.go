@@ -16,6 +16,8 @@ import (
 	"github.com/sq325/svcPodKmsExporter/resource"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+
+	_ "net/http/pprof"
 )
 
 // flags
@@ -28,8 +30,8 @@ var (
 func main() {
 	pflag.Parse()
 	if *version {
-		fmt.Println("svcPod_exporter v2.0, go-client")
-		fmt.Println("Update: 2023-4-13")
+		fmt.Println("svcPod_exporter v2.1, service and pod label")
+		fmt.Println("Update: 2023-4-17")
 		os.Exit(0)
 	}
 

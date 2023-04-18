@@ -11,7 +11,7 @@ import (
 var (
 	SvcMetricName      = "kube_service_selector"
 	SvcMetricHelp      = "kube_service_selector contains all selectors services"
-	SvcMetricLabelKeys = []string{"namespace", "name", "selector"}
+	SvcMetricLabelKeys = []string{"namespace", "service", "selector"}
 )
 
 var (
@@ -42,9 +42,9 @@ func (c *SvcCollector) Collect(ch chan<- prometheus.Metric) {
 			log.Fatal(err)
 			return
 		}
-		name := s.Name()
+		svcName := s.Name()
 		namespace := s.Namespace()
-		values := []string{namespace, name, selectorStr}
+		values := []string{namespace, svcName, selectorStr}
 		c.cv.WithLabelValues(values...).Inc()
 	}
 	c.cv.Collect(ch)
